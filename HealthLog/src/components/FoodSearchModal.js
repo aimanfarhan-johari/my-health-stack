@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useEffect } from 'react';
+import React, { useState, useCallback, useEffect, useRef } from 'react';
 import {
   View, Text, Modal, StyleSheet, TextInput, TouchableOpacity,
   FlatList, ActivityIndicator, KeyboardAvoidingView, Platform, Alert,
@@ -35,10 +35,20 @@ export default function FoodSearchModal({ visible, meal, onClose, onAddEntry }) 
   const [permission, requestPermission] = useCameraPermissions();
   const [scanned, setScanned] = useState(false);
   const [manual, setManual] = useState({ name: '', calories: '', protein: '', carbs: '', fat: '', serving: '' });
+  const debounceTimer = useRef(null);
 
   useEffect(() => {
     if (visible && activeTab === 'Recent') loadRecent();
   }, [visible, activeTab]);
+
+  // Debounced auto-search: fires 500ms after the user stops typing
+  useEffect(() => {
+    if (activeTab !== 'Search') return;
+    if (!query.trim()) return;
+    clearTimeout(debounceTimer.current);
+    debounceTimer.current = setTimeout(() => { handleSearch(); }, 500);
+    return () => clearTimeout(debounceTimer.current);
+  }, [query, activeTab]);
 
   const loadRecent = async () => {
     try {

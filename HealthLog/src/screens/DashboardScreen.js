@@ -11,7 +11,7 @@ import useStore from '../store/useStore';
 export default function DashboardScreen() {
   const { currentMonth, settings } = useStore();
   const { year, month } = currentMonth;
-  const calorieGoal = settings.dailyCalorieGoal;
+  const calorieGoal = settings.dailyCalorieGoal || 2000;
 
   const [greenDates, setGreenDates] = useState(new Set());
   const [modalVisible, setModalVisible] = useState(false);

@@ -10,6 +10,7 @@ import MacroRing from '../components/MacroRing';
 import MealSection from '../components/MealSection';
 import FoodSearchModal from '../components/FoodSearchModal';
 import { getFoodEntriesByDate, addFoodEntry, deleteFoodEntry } from '../db/queries/foodLog';
+import { getWaterForDate, addWater } from '../db/queries/waterLog';
 import { todayISO, formatDisplay } from '../utils/dateUtils';
 
 const MEALS = ['Breakfast', 'Lunch', 'Dinner', 'Snacks'];
@@ -23,17 +24,22 @@ export default function FoodLogScreen() {
   const [entries, setEntries] = useState([]);
   const [searchMeal, setSearchMeal] = useState(null);
   const [refreshing, setRefreshing] = useState(false);
+  const [waterMl, setWaterMl] = useState(0);
 
-  const loadEntries = async () => {
-    const data = await getFoodEntriesByDate(selectedDate);
+  const loadData = async () => {
+    const [data, water] = await Promise.all([
+      getFoodEntriesByDate(selectedDate),
+      getWaterForDate(selectedDate),
+    ]);
     setEntries(data);
+    setWaterMl(water);
   };
 
-  useFocusEffect(useCallback(() => { loadEntries(); }, [selectedDate]));
+  useFocusEffect(useCallback(() => { loadData(); }, [selectedDate]));
 
   const onRefresh = async () => {
     setRefreshing(true);
-    await loadEntries();
+    await loadData();
     setRefreshing(false);
   };
 
@@ -41,12 +47,18 @@ export default function FoodLogScreen() {
     const id = generateUUID();
     const entry = { id, date: selectedDate, meal, ...entryData };
     await addFoodEntry(entry);
-    await loadEntries();
+    await loadData();
   };
 
   const handleDeleteEntry = async (id) => {
     await deleteFoodEntry(id);
-    await loadEntries();
+    await loadData();
+  };
+
+  const handleAddWater = async () => {
+    await addWater(selectedDate, 250);
+    const updated = await getWaterForDate(selectedDate);
+    setWaterMl(updated);
   };
 
   const totals = entries.reduce(
@@ -74,6 +86,11 @@ export default function FoodLogScreen() {
     const next = d.toISOString().split('T')[0];
     if (next <= today) setSelectedDate(next);
   };
+
+  const waterGoalMl = (settings.waterGoal || 3.0) * 1000;
+  const waterL = (waterMl / 1000).toFixed(1);
+  const waterGoalL = (settings.waterGoal || 3.0).toFixed(1);
+  const waterPct = Math.min(1, waterMl / waterGoalMl);
 
   return (
     <View style={styles.container}>
@@ -114,6 +131,20 @@ export default function FoodLogScreen() {
             onDeleteEntry={handleDeleteEntry}
           />
         ))}
+
+        {/* Water Tracker */}
+        <View style={styles.waterCard}>
+          <View style={styles.waterHeader}>
+            <Text style={styles.waterTitle}>💧 Water</Text>
+            <Text style={styles.waterAmount}>{waterL} / {waterGoalL} L</Text>
+          </View>
+          <View style={styles.waterTrack}>
+            <View style={[styles.waterFill, { width: `${waterPct * 100}%` }]} />
+          </View>
+          <TouchableOpacity style={styles.waterBtn} onPress={handleAddWater}>
+            <Text style={styles.waterBtnText}>+ 250 ml</Text>
+          </TouchableOpacity>
+        </View>
       </ScrollView>
 
       <FoodSearchModal
@@ -138,4 +169,28 @@ const styles = StyleSheet.create({
   navDisabled: { opacity: 0.3 },
   dateLabel: { color: colors.textPrimary, fontSize: typography.fontSizeLG, fontWeight: typography.fontWeightSemiBold },
   scrollContent: { padding: spacing.lg, paddingBottom: spacing.xxl },
+  waterCard: {
+    backgroundColor: colors.surface,
+    borderRadius: 12,
+    padding: spacing.lg,
+    marginTop: spacing.sm,
+  },
+  waterHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: spacing.md },
+  waterTitle: { color: colors.textPrimary, fontSize: typography.fontSizeMD, fontWeight: typography.fontWeightSemiBold },
+  waterAmount: { color: colors.textSecondary, fontSize: typography.fontSizeSM },
+  waterTrack: {
+    height: 8, backgroundColor: colors.border, borderRadius: 4,
+    overflow: 'hidden', marginBottom: spacing.md,
+  },
+  waterFill: { height: '100%', backgroundColor: '#03A9F4', borderRadius: 4 },
+  waterBtn: {
+    alignSelf: 'flex-start',
+    backgroundColor: 'rgba(3,169,244,0.15)',
+    borderWidth: 1,
+    borderColor: '#03A9F4',
+    borderRadius: 20,
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.xs,
+  },
+  waterBtnText: { color: '#03A9F4', fontSize: typography.fontSizeSM, fontWeight: typography.fontWeightSemiBold },
 });

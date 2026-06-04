@@ -1,24 +1,56 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import {
   View, Text, Modal, StyleSheet, TextInput, TouchableOpacity,
   FlatList, ActivityIndicator, KeyboardAvoidingView, Platform, Alert,
+  ScrollView,
 } from 'react-native';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import { colors, typography, spacing } from '../constants/theme';
 import { searchFood, getProductByBarcode } from '../api/openFoodFacts';
+import { getDB } from '../db/database';
+
+const TABS = ['Search', 'Barcode', 'Manual', 'Recent'];
+
+const MACRO_COLORS = { protein: '#2196F3', carbs: '#FF9800', fat: '#F44336' };
+
+async function getRecentFoods() {
+  const db = getDB();
+  return await db.getAllAsync(
+    `SELECT food_name, serving_size, calories, protein, carbs, fat, source, MAX(date) as last_used
+     FROM food_entries
+     GROUP BY food_name
+     ORDER BY last_used DESC
+     LIMIT 20`
+  );
+}
 
 export default function FoodSearchModal({ visible, meal, onClose, onAddEntry }) {
+  const [activeTab, setActiveTab] = useState('Search');
   const [query, setQuery] = useState('');
   const [results, setResults] = useState([]);
   const [loading, setLoading] = useState(false);
-  const [scanning, setScanning] = useState(false);
-  const [manualMode, setManualMode] = useState(false);
-  const [manual, setManual] = useState({ name: '', calories: '', protein: '', carbs: '', fat: '', serving: '' });
+  const [selected, setSelected] = useState(null);
+  const [servingG, setServingG] = useState('100');
+  const [recentItems, setRecentItems] = useState([]);
   const [permission, requestPermission] = useCameraPermissions();
+  const [scanned, setScanned] = useState(false);
+  const [manual, setManual] = useState({ name: '', calories: '', protein: '', carbs: '', fat: '', serving: '' });
+
+  useEffect(() => {
+    if (visible && activeTab === 'Recent') loadRecent();
+  }, [visible, activeTab]);
+
+  const loadRecent = async () => {
+    try {
+      const rows = await getRecentFoods();
+      setRecentItems(rows);
+    } catch { /* silent */ }
+  };
 
   const handleSearch = useCallback(async () => {
     if (!query.trim()) return;
     setLoading(true);
+    setSelected(null);
     try {
       const items = await searchFood(query.trim());
       setResults(items);
@@ -30,31 +62,72 @@ export default function FoodSearchModal({ visible, meal, onClose, onAddEntry }) 
   }, [query]);
 
   const handleBarcode = async ({ data }) => {
-    if (!data) return;
-    setScanning(false);
+    if (!data || scanned) return;
+    setScanned(true);
     setLoading(true);
     try {
       const product = await getProductByBarcode(data);
-      if (product) setResults([product]);
-      else Alert.alert('Not found', 'No product found for this barcode.');
+      if (product) {
+        setSelected(product);
+        setServingG('100');
+        setActiveTab('Search');
+        setResults([product]);
+      } else {
+        Alert.alert('Not found', 'No product found for this barcode.');
+        setScanned(false);
+      }
     } catch {
       Alert.alert('Error', 'Failed to fetch product.');
+      setScanned(false);
     } finally {
       setLoading(false);
     }
   };
 
-  const handleSelect = (item) => {
+  const handleSelectResult = (item) => {
+    setSelected(item);
+    setServingG(item.serving_size ? parseSizeG(item.serving_size) : '100');
+  };
+
+  const parseSizeG = (sizeStr) => {
+    const match = String(sizeStr).match(/[\d.]+/);
+    return match ? match[0] : '100';
+  };
+
+  const scaledMacros = useCallback((item) => {
+    const g = parseFloat(servingG) || 100;
+    const factor = g / 100;
+    return {
+      calories: Math.round((item.calories_per_100g ?? item.calories ?? 0) * factor),
+      protein: Math.round((item.protein_per_100g ?? item.protein ?? 0) * factor),
+      carbs: Math.round((item.carbs_per_100g ?? item.carbs ?? 0) * factor),
+      fat: Math.round((item.fat_per_100g ?? item.fat ?? 0) * factor),
+    };
+  }, [servingG]);
+
+  const handleLogFood = (item) => {
+    const g = parseFloat(servingG) || 100;
+    const macros = scaledMacros(item);
     const entry = {
-      food_name: item.brand ? `${item.name} (${item.brand})` : item.name,
-      serving_size: item.serving_size || '100g',
-      calories: item.calories_per_100g,
-      protein: item.protein_per_100g,
-      carbs: item.carbs_per_100g,
-      fat: item.fat_per_100g,
-      source: 'openfoodfacts',
+      food_name: item.brand ? `${item.name} (${item.brand})` : (item.food_name ?? item.name ?? 'Food'),
+      serving_size: `${g}g`,
+      ...macros,
+      source: item.source ?? 'openfoodfacts',
     };
     onAddEntry?.(meal, entry);
+    handleClose();
+  };
+
+  const handleLogRecent = (item) => {
+    onAddEntry?.(meal, {
+      food_name: item.food_name,
+      serving_size: item.serving_size,
+      calories: item.calories,
+      protein: item.protein,
+      carbs: item.carbs,
+      fat: item.fat,
+      source: item.source ?? 'manual',
+    });
     handleClose();
   };
 
@@ -78,8 +151,10 @@ export default function FoodSearchModal({ visible, meal, onClose, onAddEntry }) 
   const handleClose = () => {
     setQuery('');
     setResults([]);
-    setScanning(false);
-    setManualMode(false);
+    setSelected(null);
+    setServingG('100');
+    setScanned(false);
+    setActiveTab('Search');
     setManual({ name: '', calories: '', protein: '', carbs: '', fat: '', serving: '' });
     onClose?.();
   };
@@ -89,26 +164,104 @@ export default function FoodSearchModal({ visible, meal, onClose, onAddEntry }) 
       const { granted } = await requestPermission();
       if (!granted) { Alert.alert('Permission denied', 'Camera access is required to scan barcodes.'); return; }
     }
-    setScanning(true);
+    setScanned(false);
   };
 
   return (
     <Modal visible={visible} animationType="slide" onRequestClose={handleClose}>
       <KeyboardAvoidingView style={styles.container} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+        {/* Header */}
         <View style={styles.header}>
           <Text style={styles.title}>Add Food · {meal}</Text>
           <TouchableOpacity onPress={handleClose}><Text style={styles.closeText}>✕</Text></TouchableOpacity>
         </View>
 
-        {scanning ? (
-          <View style={styles.scannerContainer}>
-            <CameraView style={styles.camera} onBarcodeScanned={handleBarcode} barcodeScannerSettings={{ barcodeTypes: ['ean13', 'ean8', 'upc_a', 'upc_e'] }} />
-            <TouchableOpacity style={styles.cancelScan} onPress={() => setScanning(false)}>
-              <Text style={styles.cancelScanText}>Cancel</Text>
+        {/* Tabs */}
+        <View style={styles.tabBar}>
+          {TABS.map(tab => (
+            <TouchableOpacity
+              key={tab}
+              style={[styles.tab, activeTab === tab && styles.tabActive]}
+              onPress={() => { setSelected(null); setActiveTab(tab); if (tab === 'Barcode') startScan(); }}
+            >
+              <Text style={[styles.tabText, activeTab === tab && styles.tabTextActive]}>{tab}</Text>
             </TouchableOpacity>
+          ))}
+        </View>
+
+        {/* Search tab */}
+        {activeTab === 'Search' && (
+          <View style={{ flex: 1 }}>
+            {selected ? (
+              <ServingPicker
+                item={selected}
+                servingG={servingG}
+                setServingG={setServingG}
+                scaledMacros={scaledMacros}
+                onLog={() => handleLogFood(selected)}
+                onBack={() => setSelected(null)}
+              />
+            ) : (
+              <>
+                <View style={styles.searchRow}>
+                  <TextInput
+                    style={styles.searchInput}
+                    placeholder="Search food…"
+                    placeholderTextColor={colors.textSecondary}
+                    value={query}
+                    onChangeText={setQuery}
+                    onSubmitEditing={handleSearch}
+                    returnKeyType="search"
+                    autoFocus
+                  />
+                  <TouchableOpacity style={styles.searchBtn} onPress={handleSearch}>
+                    <Text style={styles.searchBtnText}>Go</Text>
+                  </TouchableOpacity>
+                </View>
+                {loading ? (
+                  <ActivityIndicator color={colors.accent} style={{ marginTop: spacing.xl }} />
+                ) : (
+                  <FlatList
+                    data={results}
+                    keyExtractor={(item, i) => item.id ?? String(i)}
+                    renderItem={({ item }) => (
+                      <TouchableOpacity style={styles.resultRow} onPress={() => handleSelectResult(item)}>
+                        <View style={{ flex: 1 }}>
+                          <Text style={styles.resultName} numberOfLines={1}>{item.name}</Text>
+                          {item.brand ? <Text style={styles.resultBrand}>{item.brand}</Text> : null}
+                        </View>
+                        <Text style={styles.resultCal}>{Math.round(item.calories_per_100g)} kcal/100g</Text>
+                      </TouchableOpacity>
+                    )}
+                    ItemSeparatorComponent={() => <View style={styles.separator} />}
+                  />
+                )}
+              </>
+            )}
           </View>
-        ) : manualMode ? (
-          <View style={styles.manualForm}>
+        )}
+
+        {/* Barcode tab */}
+        {activeTab === 'Barcode' && (
+          <View style={{ flex: 1 }}>
+            {loading ? (
+              <ActivityIndicator color={colors.accent} style={{ flex: 1 }} />
+            ) : (
+              <CameraView
+                style={{ flex: 1 }}
+                onBarcodeScanned={scanned ? undefined : handleBarcode}
+                barcodeScannerSettings={{ barcodeTypes: ['ean13', 'ean8', 'upc_a', 'upc_e'] }}
+              />
+            )}
+            <View style={styles.barcodeHint}>
+              <Text style={styles.barcodeHintText}>Point camera at a barcode</Text>
+            </View>
+          </View>
+        )}
+
+        {/* Manual tab */}
+        {activeTab === 'Manual' && (
+          <ScrollView style={{ flex: 1 }} contentContainerStyle={styles.manualForm}>
             <Text style={styles.sectionTitle}>Manual Entry</Text>
             {[
               { key: 'name', placeholder: 'Food name *', keyboardType: 'default' },
@@ -128,62 +281,79 @@ export default function FoodSearchModal({ visible, meal, onClose, onAddEntry }) 
                 keyboardType={field.keyboardType}
               />
             ))}
-            <TouchableOpacity style={styles.addBtn} onPress={handleManualAdd}>
-              <Text style={styles.addBtnText}>Add Entry</Text>
+            <TouchableOpacity style={styles.logBtn} onPress={handleManualAdd}>
+              <Text style={styles.logBtnText}>Log Food</Text>
             </TouchableOpacity>
-            <TouchableOpacity style={styles.backBtn} onPress={() => setManualMode(false)}>
-              <Text style={styles.backBtnText}>← Back to search</Text>
-            </TouchableOpacity>
-          </View>
-        ) : (
-          <>
-            <View style={styles.searchRow}>
-              <TextInput
-                style={styles.searchInput}
-                placeholder="Search food…"
-                placeholderTextColor={colors.textSecondary}
-                value={query}
-                onChangeText={setQuery}
-                onSubmitEditing={handleSearch}
-                returnKeyType="search"
-                autoFocus
-              />
-              <TouchableOpacity style={styles.searchBtn} onPress={handleSearch}>
-                <Text style={styles.searchBtnText}>Go</Text>
-              </TouchableOpacity>
-            </View>
+          </ScrollView>
+        )}
 
-            <View style={styles.actionRow}>
-              <TouchableOpacity style={styles.actionBtn} onPress={startScan}>
-                <Text style={styles.actionBtnText}>📷 Scan barcode</Text>
+        {/* Recent tab */}
+        {activeTab === 'Recent' && (
+          <FlatList
+            data={recentItems}
+            keyExtractor={(item, i) => item.food_name ?? String(i)}
+            ListEmptyComponent={<Text style={styles.emptyText}>No recent foods yet.</Text>}
+            renderItem={({ item }) => (
+              <TouchableOpacity style={styles.resultRow} onPress={() => handleLogRecent(item)}>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.resultName} numberOfLines={1}>{item.food_name}</Text>
+                  {item.serving_size ? <Text style={styles.resultBrand}>{item.serving_size}</Text> : null}
+                </View>
+                <Text style={styles.resultCal}>{Math.round(item.calories)} kcal</Text>
               </TouchableOpacity>
-              <TouchableOpacity style={styles.actionBtn} onPress={() => setManualMode(true)}>
-                <Text style={styles.actionBtnText}>✏️ Manual entry</Text>
-              </TouchableOpacity>
-            </View>
-
-            {loading ? (
-              <ActivityIndicator color={colors.accent} style={{ marginTop: spacing.xl }} />
-            ) : (
-              <FlatList
-                data={results}
-                keyExtractor={(item, i) => item.id ?? String(i)}
-                renderItem={({ item }) => (
-                  <TouchableOpacity style={styles.resultRow} onPress={() => handleSelect(item)}>
-                    <View style={{ flex: 1 }}>
-                      <Text style={styles.resultName} numberOfLines={1}>{item.name}</Text>
-                      {item.brand ? <Text style={styles.resultBrand}>{item.brand}</Text> : null}
-                    </View>
-                    <Text style={styles.resultCal}>{Math.round(item.calories_per_100g)} kcal</Text>
-                  </TouchableOpacity>
-                )}
-                ItemSeparatorComponent={() => <View style={styles.separator} />}
-              />
             )}
-          </>
+            ItemSeparatorComponent={() => <View style={styles.separator} />}
+          />
         )}
       </KeyboardAvoidingView>
     </Modal>
+  );
+}
+
+function ServingPicker({ item, servingG, setServingG, scaledMacros, onLog, onBack }) {
+  const macros = scaledMacros(item);
+
+  return (
+    <ScrollView contentContainerStyle={styles.pickerContainer}>
+      <TouchableOpacity onPress={onBack} style={styles.backBtn}>
+        <Text style={styles.backBtnText}>← Back</Text>
+      </TouchableOpacity>
+
+      <Text style={styles.pickerTitle} numberOfLines={2}>
+        {item.brand ? `${item.name} (${item.brand})` : item.name}
+      </Text>
+
+      <View style={styles.servingRow}>
+        <Text style={styles.servingLabel}>Serving size (g)</Text>
+        <TextInput
+          style={styles.servingInput}
+          value={servingG}
+          onChangeText={setServingG}
+          keyboardType="numeric"
+          selectTextOnFocus
+        />
+      </View>
+
+      <View style={styles.macroPreview}>
+        <MacroPreviewRow label="Calories" value={`${macros.calories} kcal`} color={colors.textPrimary} />
+        <MacroPreviewRow label="Protein" value={`${macros.protein}g`} color="#2196F3" />
+        <MacroPreviewRow label="Carbs" value={`${macros.carbs}g`} color="#FF9800" />
+        <MacroPreviewRow label="Fat" value={`${macros.fat}g`} color="#F44336" />
+      </View>
+
+      <TouchableOpacity style={styles.logBtn} onPress={onLog}>
+        <Text style={styles.logBtnText}>Log Food</Text>
+      </TouchableOpacity>
+    </ScrollView>
+  );
+}
+
+function MacroPreviewRow({ label, value, color }) {
+  return (
+    <View style={styles.macroRow}>
+      <Text style={styles.macroLabel}>{label}</Text>
+      <Text style={[styles.macroValue, { color }]}>{value}</Text>
+    </View>
   );
 }
 
@@ -196,6 +366,14 @@ const styles = StyleSheet.create({
   },
   title: { color: colors.textPrimary, fontSize: typography.fontSizeLG, fontWeight: typography.fontWeightSemiBold },
   closeText: { color: colors.textSecondary, fontSize: 20 },
+  tabBar: {
+    flexDirection: 'row', borderBottomWidth: 1, borderBottomColor: colors.border,
+    backgroundColor: colors.surface,
+  },
+  tab: { flex: 1, paddingVertical: spacing.md, alignItems: 'center' },
+  tabActive: { borderBottomWidth: 2, borderBottomColor: colors.accent },
+  tabText: { color: colors.textSecondary, fontSize: typography.fontSizeSM },
+  tabTextActive: { color: colors.accent, fontWeight: typography.fontWeightSemiBold },
   searchRow: { flexDirection: 'row', padding: spacing.lg, gap: spacing.sm },
   searchInput: {
     flex: 1, backgroundColor: colors.surface, borderRadius: 10,
@@ -207,9 +385,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.lg, justifyContent: 'center',
   },
   searchBtnText: { color: colors.background, fontWeight: typography.fontWeightBold },
-  actionRow: { flexDirection: 'row', gap: spacing.sm, paddingHorizontal: spacing.lg, marginBottom: spacing.sm },
-  actionBtn: { flex: 1, backgroundColor: colors.surface, borderRadius: 10, paddingVertical: spacing.sm, alignItems: 'center' },
-  actionBtnText: { color: colors.textPrimary, fontSize: typography.fontSizeSM },
   resultRow: {
     flexDirection: 'row', alignItems: 'center',
     paddingHorizontal: spacing.lg, paddingVertical: spacing.md,
@@ -218,14 +393,13 @@ const styles = StyleSheet.create({
   resultBrand: { color: colors.textSecondary, fontSize: typography.fontSizeXS, marginTop: 2 },
   resultCal: { color: colors.accent, fontSize: typography.fontSizeSM, fontWeight: typography.fontWeightSemiBold },
   separator: { height: 1, backgroundColor: colors.border, marginHorizontal: spacing.lg },
-  scannerContainer: { flex: 1 },
-  camera: { flex: 1 },
-  cancelScan: {
-    position: 'absolute', bottom: 40, alignSelf: 'center',
-    backgroundColor: colors.surface, borderRadius: 12,
-    paddingHorizontal: spacing.xl, paddingVertical: spacing.md,
+  barcodeHint: {
+    position: 'absolute', bottom: 40, left: 0, right: 0, alignItems: 'center',
   },
-  cancelScanText: { color: colors.textPrimary, fontSize: typography.fontSizeMD, fontWeight: typography.fontWeightSemiBold },
+  barcodeHintText: {
+    backgroundColor: 'rgba(0,0,0,0.6)', color: '#FFF', paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.sm, borderRadius: 12, fontSize: typography.fontSizeSM,
+  },
   manualForm: { padding: spacing.lg },
   sectionTitle: { color: colors.accent, fontSize: typography.fontSizeSM, fontWeight: typography.fontWeightSemiBold, marginBottom: spacing.md, textTransform: 'uppercase' },
   manualInput: {
@@ -233,8 +407,25 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.md, paddingVertical: spacing.sm,
     color: colors.textPrimary, fontSize: typography.fontSizeMD, marginBottom: spacing.sm,
   },
-  addBtn: { backgroundColor: colors.accent, borderRadius: 12, paddingVertical: spacing.md, alignItems: 'center', marginTop: spacing.sm },
-  addBtnText: { color: colors.background, fontSize: typography.fontSizeMD, fontWeight: typography.fontWeightBold },
-  backBtn: { paddingVertical: spacing.md, alignItems: 'center' },
+  logBtn: { backgroundColor: colors.accent, borderRadius: 12, paddingVertical: spacing.md, alignItems: 'center', marginTop: spacing.sm },
+  logBtnText: { color: colors.background, fontSize: typography.fontSizeMD, fontWeight: typography.fontWeightBold },
+  emptyText: { color: colors.textSecondary, textAlign: 'center', padding: spacing.xl },
+  pickerContainer: { padding: spacing.lg },
+  backBtn: { marginBottom: spacing.md },
   backBtnText: { color: colors.textSecondary, fontSize: typography.fontSizeSM },
+  pickerTitle: { color: colors.textPrimary, fontSize: typography.fontSizeLG, fontWeight: typography.fontWeightBold, marginBottom: spacing.lg },
+  servingRow: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+    backgroundColor: colors.surface, borderRadius: 10, padding: spacing.md, marginBottom: spacing.lg,
+  },
+  servingLabel: { color: colors.textPrimary, fontSize: typography.fontSizeMD },
+  servingInput: {
+    backgroundColor: colors.background, borderRadius: 8, width: 80, textAlign: 'center',
+    paddingVertical: spacing.xs, color: colors.textPrimary, fontSize: typography.fontSizeLG,
+    fontWeight: typography.fontWeightBold,
+  },
+  macroPreview: { backgroundColor: colors.surface, borderRadius: 12, padding: spacing.md, marginBottom: spacing.lg },
+  macroRow: { flexDirection: 'row', justifyContent: 'space-between', paddingVertical: spacing.xs },
+  macroLabel: { color: colors.textSecondary, fontSize: typography.fontSizeMD },
+  macroValue: { fontSize: typography.fontSizeMD, fontWeight: typography.fontWeightSemiBold },
 });

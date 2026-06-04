@@ -73,6 +73,11 @@ export async function initDatabase() {
       value REAL NOT NULL,
       unit TEXT NOT NULL
     );
+
+    CREATE TABLE IF NOT EXISTS water_log (
+      date TEXT PRIMARY KEY,
+      amount_ml INTEGER NOT NULL DEFAULT 0
+    );
   `);
 
   // Seed default settings row if not present

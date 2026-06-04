@@ -1,6 +1,6 @@
 import React, { useState, useCallback } from 'react';
 import {
-  View, Text, StyleSheet, ScrollView, TouchableOpacity, RefreshControl,
+  View, Text, StyleSheet, ScrollView, TouchableOpacity, RefreshControl, Alert,
 } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import * as Crypto from 'expo-crypto';
@@ -27,12 +27,16 @@ export default function FoodLogScreen() {
   const [waterMl, setWaterMl] = useState(0);
 
   const loadData = async () => {
-    const [data, water] = await Promise.all([
-      getFoodEntriesByDate(selectedDate),
-      getWaterForDate(selectedDate),
-    ]);
-    setEntries(data);
-    setWaterMl(water);
+    try {
+      const [data, water] = await Promise.all([
+        getFoodEntriesByDate(selectedDate),
+        getWaterForDate(selectedDate),
+      ]);
+      setEntries(data);
+      setWaterMl(water);
+    } catch (err) {
+      Alert.alert('Error', 'Failed to load food log data.');
+    }
   };
 
   useFocusEffect(useCallback(() => { loadData(); }, [selectedDate]));
@@ -44,15 +48,23 @@ export default function FoodLogScreen() {
   };
 
   const handleAddEntry = async (meal, entryData) => {
-    const id = generateUUID();
-    const entry = { id, date: selectedDate, meal, ...entryData };
-    await addFoodEntry(entry);
-    await loadData();
+    try {
+      const id = generateUUID();
+      const entry = { id, date: selectedDate, meal, ...entryData };
+      await addFoodEntry(entry);
+      await loadData();
+    } catch {
+      Alert.alert('Error', 'Failed to save food entry.');
+    }
   };
 
   const handleDeleteEntry = async (id) => {
-    await deleteFoodEntry(id);
-    await loadData();
+    try {
+      await deleteFoodEntry(id);
+      await loadData();
+    } catch {
+      Alert.alert('Error', 'Failed to delete food entry.');
+    }
   };
 
   const handleAddWater = async () => {

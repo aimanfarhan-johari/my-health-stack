@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, TextInput,
   TouchableOpacity, Alert, KeyboardAvoidingView, Platform,
@@ -80,10 +80,12 @@ export default function SettingsScreen() {
     settings.metricTargets.muscleMass != null ? String(settings.metricTargets.muscleMass) : ''
   );
 
-  // Sync toggles (no parsing needed) immediately
+  // Sync unit toggles to store immediately (skip the first render)
+  const mountedRef = useRef(false);
   useEffect(() => {
+    if (!mountedRef.current) { mountedRef.current = true; return; }
     updateSettings({ weightUnit, distanceUnit });
-  }, [weightUnit, distanceUnit]);
+  }, [weightUnit, distanceUnit]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleSave = async () => {
     const parsed = {

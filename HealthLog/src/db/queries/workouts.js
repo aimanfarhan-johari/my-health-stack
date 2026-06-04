@@ -62,3 +62,11 @@ export async function getWorkoutDates() {
   const rows = await db.getAllAsync('SELECT DISTINCT date FROM workout_sessions ORDER BY date DESC');
   return rows.map(r => r.date);
 }
+
+export async function getWorkoutSummaryForMonth(yearMonth) {
+  const db = getDB();
+  return await db.getAllAsync(
+    'SELECT date, MIN(complete) as allComplete, COUNT(*) as sessionCount FROM workout_sessions WHERE date LIKE ? GROUP BY date',
+    [`${yearMonth}%`]
+  );
+}

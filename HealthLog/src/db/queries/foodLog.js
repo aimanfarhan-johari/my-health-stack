@@ -33,3 +33,11 @@ export async function getFoodLogDates() {
   const rows = await db.getAllAsync('SELECT DISTINCT date FROM food_entries ORDER BY date DESC');
   return rows.map(r => r.date);
 }
+
+export async function getFoodSummaryForMonth(yearMonth) {
+  const db = getDB();
+  return await db.getAllAsync(
+    'SELECT date, SUM(calories) as totalCalories, SUM(protein) as totalProtein, SUM(carbs) as totalCarbs, SUM(fat) as totalFat FROM food_entries WHERE date LIKE ? GROUP BY date',
+    [`${yearMonth}%`]
+  );
+}

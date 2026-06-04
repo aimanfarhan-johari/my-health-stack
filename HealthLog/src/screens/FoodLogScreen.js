@@ -207,7 +207,7 @@ const styles = StyleSheet.create({
   waterFill: { height: '100%', backgroundColor: colors.water, borderRadius: 4 },
   waterBtn: {
     alignSelf: 'flex-start',
-    backgroundColor: 'rgba(3,169,244,0.15)',
+    backgroundColor: colors.waterTint,
     borderWidth: 1,
     borderColor: colors.water,
     borderRadius: 20,

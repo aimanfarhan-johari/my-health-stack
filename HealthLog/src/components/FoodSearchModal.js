@@ -35,6 +35,8 @@ export default function FoodSearchModal({ visible, meal, onClose, onAddEntry }) 
   const [permission, requestPermission] = useCameraPermissions();
   const [scanned, setScanned] = useState(false);
   const [manual, setManual] = useState({ name: '', calories: '', protein: '', carbs: '', fat: '', serving: '' });
+  const [searchError, setSearchError] = useState(null);
+  const [hasSearched, setHasSearched] = useState(false);
   const debounceTimer = useRef(null);
 
   useEffect(() => {
@@ -44,7 +46,7 @@ export default function FoodSearchModal({ visible, meal, onClose, onAddEntry }) 
   // Debounced auto-search: fires 500ms after the user stops typing
   useEffect(() => {
     if (activeTab !== 'Search') return;
-    if (!query.trim()) return;
+    if (!query.trim()) { setSearchError(null); setHasSearched(false); return; }
     clearTimeout(debounceTimer.current);
     debounceTimer.current = setTimeout(() => { handleSearch(); }, 500);
     return () => clearTimeout(debounceTimer.current);
@@ -61,11 +63,15 @@ export default function FoodSearchModal({ visible, meal, onClose, onAddEntry }) 
     if (!query.trim()) return;
     setLoading(true);
     setSelected(null);
+    setSearchError(null);
+    setHasSearched(false);
     try {
       const items = await searchFood(query.trim());
       setResults(items);
-    } catch {
-      Alert.alert('Error', 'Failed to search. Check your connection.');
+      setHasSearched(true);
+    } catch (err) {
+      const isOffline = err?.message?.includes('Network') || err?.message?.includes('network') || err?.message?.includes('fetch') || !navigator?.onLine;
+      setSearchError(isOffline ? 'No internet connection. Try manual entry.' : 'Search failed. Check your connection.');
     } finally {
       setLoading(false);
     }
@@ -166,6 +172,8 @@ export default function FoodSearchModal({ visible, meal, onClose, onAddEntry }) 
     setScanned(false);
     setActiveTab('Search');
     setManual({ name: '', calories: '', protein: '', carbs: '', fat: '', serving: '' });
+    setSearchError(null);
+    setHasSearched(false);
     onClose?.();
   };
 
@@ -229,11 +237,21 @@ export default function FoodSearchModal({ visible, meal, onClose, onAddEntry }) 
                   </TouchableOpacity>
                 </View>
                 {loading ? (
-                  <ActivityIndicator color={colors.accent} style={{ marginTop: spacing.xl }} />
+                  <View style={styles.loadingState}>
+                    <ActivityIndicator color={colors.accent} />
+                    <Text style={styles.loadingText}>Searching foods...</Text>
+                  </View>
+                ) : searchError ? (
+                  <Text style={styles.emptyText}>{searchError}</Text>
                 ) : (
                   <FlatList
                     data={results}
                     keyExtractor={(item, i) => item.id ?? String(i)}
+                    ListEmptyComponent={
+                      hasSearched ? (
+                        <Text style={styles.emptyText}>No results found. Try a different search or add manually.</Text>
+                      ) : null
+                    }
                     renderItem={({ item }) => (
                       <TouchableOpacity style={styles.resultRow} onPress={() => handleSelectResult(item)}>
                         <View style={{ flex: 1 }}>
@@ -420,6 +438,8 @@ const styles = StyleSheet.create({
   logBtn: { backgroundColor: colors.accent, borderRadius: 12, paddingVertical: spacing.md, alignItems: 'center', marginTop: spacing.sm },
   logBtnText: { color: colors.background, fontSize: typography.fontSizeMD, fontWeight: typography.fontWeightBold },
   emptyText: { color: colors.textSecondary, textAlign: 'center', padding: spacing.xl },
+  loadingState: { alignItems: 'center', paddingTop: spacing.xl, gap: spacing.sm },
+  loadingText: { color: colors.textSecondary, fontSize: typography.fontSizeSM },
   pickerContainer: { padding: spacing.lg },
   backBtn: { marginBottom: spacing.md },
   backBtnText: { color: colors.textSecondary, fontSize: typography.fontSizeSM },

@@ -88,7 +88,11 @@ export default function WorkoutScreen() {
 
   const loadDotData = async (days) => {
     const data = await getWorkoutDotDataForDates(days);
-    setDotData(prev => ({ ...prev, ...data }));
+    // Build a complete map for the queried days so that dates whose sessions
+    // were deleted don't keep a stale entry from the previous load.
+    const freshForDays = {};
+    days.forEach(d => { freshForDays[d] = data[d] ?? null; });
+    setDotData(prev => ({ ...prev, ...freshForDays }));
   };
 
   const loadSessions = useCallback(async () => {

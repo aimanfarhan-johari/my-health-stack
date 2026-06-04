@@ -1,5 +1,5 @@
 import React from 'react';
-import { Text } from 'react-native';
+import { Text, StyleSheet } from 'react-native';
 import { NavigationContainer } from '@react-navigation/native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { colors, typography } from '../constants/theme';
@@ -10,12 +10,12 @@ import HealthMetricsScreen from '../screens/HealthMetricsScreen';
 
 const Tab = createBottomTabNavigator();
 
-const TAB_ICONS = {
-  Dashboard: '📅',
-  Nutrition: '🥗',
-  Workout: '💪',
-  Health: '❤️',
-};
+const TABS = [
+  { name: 'Dashboard', label: 'Calendar', icon: '📅', component: DashboardScreen },
+  { name: 'Food Log', label: 'Food Log', icon: '🍴', component: FoodLogScreen },
+  { name: 'Workout', label: 'Workout', icon: '🏋️', component: WorkoutScreen },
+  { name: 'Health', label: 'Health', icon: '♥', component: HealthMetricsScreen },
+];
 
 export default function AppNavigator() {
   return (
@@ -23,28 +23,44 @@ export default function AppNavigator() {
       <Tab.Navigator
         screenOptions={({ route }) => ({
           headerShown: false,
-          tabBarStyle: {
-            backgroundColor: '#111111',
-            borderTopColor: colors.border,
-            borderTopWidth: 1,
-            height: 80,
-            paddingBottom: 16,
-          },
+          tabBarStyle: styles.tabBar,
           tabBarActiveTintColor: colors.accent,
           tabBarInactiveTintColor: colors.textSecondary,
-          tabBarLabelStyle: { fontSize: typography.fontSizeXS, fontWeight: typography.fontWeightSemiBold },
-          tabBarIcon: ({ focused }) => (
-            <Text style={{ fontSize: 22, opacity: focused ? 1 : 0.6 }}>
-              {TAB_ICONS[route.name]}
-            </Text>
-          ),
+          tabBarLabelStyle: styles.tabLabel,
+          tabBarIcon: ({ focused }) => {
+            const tab = TABS.find(t => t.name === route.name);
+            return (
+              <Text style={{ fontSize: 20, opacity: focused ? 1 : 0.55 }}>
+                {tab?.icon}
+              </Text>
+            );
+          },
         })}
       >
-        <Tab.Screen name="Dashboard" component={DashboardScreen} />
-        <Tab.Screen name="Nutrition" component={FoodLogScreen} />
-        <Tab.Screen name="Workout" component={WorkoutScreen} />
-        <Tab.Screen name="Health" component={HealthMetricsScreen} />
+        {TABS.map(tab => (
+          <Tab.Screen
+            key={tab.name}
+            name={tab.name}
+            component={tab.component}
+            options={{ tabBarLabel: tab.label }}
+          />
+        ))}
       </Tab.Navigator>
     </NavigationContainer>
   );
 }
+
+const styles = StyleSheet.create({
+  tabBar: {
+    backgroundColor: '#0D0D0D',
+    borderTopColor: '#2A2A2A',
+    borderTopWidth: 1,
+    height: 80,
+    paddingBottom: 16,
+    paddingTop: 8,
+  },
+  tabLabel: {
+    fontSize: typography.fontSizeXS,
+    fontWeight: typography.fontWeightSemiBold,
+  },
+});

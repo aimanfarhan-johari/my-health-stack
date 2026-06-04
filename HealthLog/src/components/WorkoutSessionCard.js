@@ -1,24 +1,51 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { colors, typography, spacing } from '../constants/theme';
 
-export default function WorkoutSessionCard({ session, exerciseCount, completedSets, totalSets, onPress, onToggleComplete, onDelete }) {
+const TYPE_COLORS = {
+  Strength: '#2196F3',
+  Cardio: '#FF9800',
+  Mixed: '#9C27B0',
+  Flexibility: '#00BCD4',
+  Sports: '#F44336',
+  Other: '#607D8B',
+};
+
+export default function WorkoutSessionCard({
+  session,
+  exerciseCount,
+  completedSets,
+  totalSets,
+  isExpanded,
+  onPress,
+  onToggleComplete,
+  onDelete,
+}) {
   const progress = totalSets > 0 ? completedSets / totalSets : 0;
+  const badgeColor = TYPE_COLORS[session.type] || TYPE_COLORS.Other;
 
   return (
-    <TouchableOpacity style={styles.card} onPress={onPress} activeOpacity={0.8}>
+    <TouchableOpacity style={[styles.card, session.complete && styles.cardDone]} onPress={onPress} activeOpacity={0.8}>
       <View style={styles.top}>
         <View style={{ flex: 1 }}>
-          <Text style={styles.name}>{session.name}</Text>
-          <Text style={styles.meta}>{session.type} · {exerciseCount} exercise{exerciseCount !== 1 ? 's' : ''}</Text>
+          <View style={styles.nameRow}>
+            <Text style={styles.name}>{session.name}</Text>
+            <View style={[styles.badge, { backgroundColor: badgeColor + '33', borderColor: badgeColor }]}>
+              <Text style={[styles.badgeText, { color: badgeColor }]}>{session.type}</Text>
+            </View>
+          </View>
+          <Text style={styles.meta}>
+            {exerciseCount} exercise{exerciseCount !== 1 ? 's' : ''}
+            {totalSets > 0 ? ` · ${completedSets}/${totalSets} sets` : ''}
+          </Text>
         </View>
         <View style={styles.actions}>
-          <TouchableOpacity onPress={() => onToggleComplete?.()} style={styles.iconBtn}>
+          <TouchableOpacity onPress={e => { e.stopPropagation?.(); onToggleComplete?.(); }} style={styles.iconBtn}>
             <Text style={[styles.checkIcon, session.complete && styles.checkDone]}>
               {session.complete ? '✓' : '○'}
             </Text>
           </TouchableOpacity>
-          <TouchableOpacity onPress={() => onDelete?.()} style={styles.iconBtn}>
+          <TouchableOpacity onPress={e => { e.stopPropagation?.(); onDelete?.(); }} style={styles.iconBtn}>
             <Text style={styles.deleteIcon}>⋯</Text>
           </TouchableOpacity>
         </View>
@@ -29,11 +56,17 @@ export default function WorkoutSessionCard({ session, exerciseCount, completedSe
           <View style={styles.progressBar}>
             <View style={[styles.progressFill, { width: `${progress * 100}%` }]} />
           </View>
-          <Text style={styles.progressLabel}>{completedSets}/{totalSets} sets</Text>
+          <Text style={styles.progressLabel}>{Math.round(progress * 100)}%</Text>
         </View>
       )}
 
-      {session.notes ? <Text style={styles.notes} numberOfLines={2}>{session.notes}</Text> : null}
+      {session.notes ? (
+        <Text style={styles.notes} numberOfLines={2}>{session.notes}</Text>
+      ) : null}
+
+      <View style={styles.expandHint}>
+        <Text style={styles.expandHintText}>{isExpanded ? '▲ collapse' : '▼ expand'}</Text>
+      </View>
     </TouchableOpacity>
   );
 }
@@ -43,21 +76,69 @@ const styles = StyleSheet.create({
     backgroundColor: colors.surface,
     borderRadius: 12,
     padding: spacing.lg,
-    marginBottom: spacing.md,
+    marginBottom: spacing.sm,
     borderWidth: 1,
     borderColor: colors.border,
   },
+  cardDone: {
+    borderColor: colors.accent + '66',
+  },
   top: { flexDirection: 'row', alignItems: 'flex-start' },
-  name: { color: colors.textPrimary, fontSize: typography.fontSizeMD, fontWeight: typography.fontWeightSemiBold },
-  meta: { color: colors.textSecondary, fontSize: typography.fontSizeXS, marginTop: 4 },
-  actions: { flexDirection: 'row', gap: spacing.sm },
+  nameRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, flexWrap: 'wrap' },
+  name: {
+    color: colors.textPrimary,
+    fontSize: typography.fontSizeMD,
+    fontWeight: typography.fontWeightSemiBold,
+  },
+  badge: {
+    borderRadius: 4,
+    borderWidth: 1,
+    paddingHorizontal: spacing.xs,
+    paddingVertical: 1,
+  },
+  badgeText: {
+    fontSize: typography.fontSizeXS,
+    fontWeight: typography.fontWeightSemiBold,
+  },
+  meta: {
+    color: colors.textSecondary,
+    fontSize: typography.fontSizeXS,
+    marginTop: 4,
+  },
+  actions: { flexDirection: 'row', gap: spacing.xs },
   iconBtn: { padding: spacing.xs },
-  checkIcon: { color: colors.textSecondary, fontSize: 20 },
+  checkIcon: { color: colors.textSecondary, fontSize: 22 },
   checkDone: { color: colors.accent },
   deleteIcon: { color: colors.textSecondary, fontSize: 20 },
-  progressContainer: { flexDirection: 'row', alignItems: 'center', marginTop: spacing.md, gap: spacing.sm },
-  progressBar: { flex: 1, height: 4, backgroundColor: colors.border, borderRadius: 2, overflow: 'hidden' },
-  progressFill: { height: '100%', backgroundColor: colors.accent, borderRadius: 2 },
-  progressLabel: { color: colors.textSecondary, fontSize: typography.fontSizeXS },
-  notes: { color: colors.textSecondary, fontSize: typography.fontSizeXS, marginTop: spacing.sm },
+  progressContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: spacing.md,
+    gap: spacing.sm,
+  },
+  progressBar: {
+    flex: 1,
+    height: 4,
+    backgroundColor: colors.border,
+    borderRadius: 2,
+    overflow: 'hidden',
+  },
+  progressFill: {
+    height: '100%',
+    backgroundColor: colors.accent,
+    borderRadius: 2,
+  },
+  progressLabel: {
+    color: colors.textSecondary,
+    fontSize: typography.fontSizeXS,
+    width: 34,
+    textAlign: 'right',
+  },
+  notes: {
+    color: colors.textSecondary,
+    fontSize: typography.fontSizeXS,
+    marginTop: spacing.sm,
+  },
+  expandHint: { alignItems: 'flex-end', marginTop: spacing.xs },
+  expandHintText: { color: colors.textSecondary, fontSize: 9 },
 });

@@ -82,7 +82,7 @@ function MacroChip({ label, value, unit }) {
 }
 
 const styles = StyleSheet.create({
-  overlay: { flex: 1, justifyContent: 'flex-end', backgroundColor: 'rgba(0,0,0,0.65)' },
+  overlay: { flex: 1, justifyContent: 'flex-end', backgroundColor: colors.overlayDark },
   sheet: {
     backgroundColor: colors.surface,
     borderTopLeftRadius: 20,

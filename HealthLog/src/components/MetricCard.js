@@ -78,7 +78,7 @@ export default function MetricCard({ definition, history = [], target, onPress }
             )}
           </View>
         ) : (
-          <Text style={styles.noData}>No data</Text>
+          <Text style={styles.noData}>No readings yet. Tap + to log your first entry.</Text>
         )}
         {target != null && (
           <Text style={styles.goal}>Goal: {target} {definition.unit}</Text>

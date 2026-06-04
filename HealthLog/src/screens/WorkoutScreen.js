@@ -1,7 +1,7 @@
 import React, { useState, useCallback } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity, Modal,
-  TextInput, Alert, RefreshControl, Image,
+  TextInput, Alert, RefreshControl, Image, ActivityIndicator,
 } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import * as Crypto from 'expo-crypto';
@@ -68,6 +68,7 @@ export default function WorkoutScreen() {
   const [sessions, setSessions] = useState([]);
   const [exercises, setExercises] = useState({});
   const [refreshing, setRefreshing] = useState(false);
+  const [loadingSessions, setLoadingSessions] = useState(true);
   const [expandedSessionId, setExpandedSessionId] = useState(null);
 
   // New session creation (3-step)
@@ -96,6 +97,7 @@ export default function WorkoutScreen() {
   };
 
   const loadSessions = useCallback(async () => {
+    setLoadingSessions(true);
     const data = await getSessionsByDate(selectedWorkoutDate);
     setSessions(data);
     const exMap = {};
@@ -103,6 +105,7 @@ export default function WorkoutScreen() {
       exMap[s.id] = await getExercisesBySession(s.id);
     }));
     setExercises(exMap);
+    setLoadingSessions(false);
   }, [selectedWorkoutDate]);
 
   useFocusEffect(useCallback(() => {
@@ -363,9 +366,11 @@ export default function WorkoutScreen() {
         contentContainerStyle={styles.scrollContent}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.accent} />}
       >
-        {sessions.length === 0 && (
-          <Text style={styles.empty}>No session scheduled. Tap + to create one.</Text>
-        )}
+        {loadingSessions ? (
+          <ActivityIndicator color={colors.accent} style={{ marginTop: spacing.xl }} />
+        ) : sessions.length === 0 ? (
+          <Text style={styles.empty}>No session scheduled for this day. Tap + to create one.</Text>
+        ) : null}
 
         {sessions.map(session => {
           const { total, done } = getProgress(session.id);
@@ -910,7 +915,7 @@ const styles = StyleSheet.create({
   },
 
   // Modal / sheet
-  overlay: { flex: 1, justifyContent: 'flex-end', backgroundColor: 'rgba(0,0,0,0.65)' },
+  overlay: { flex: 1, justifyContent: 'flex-end', backgroundColor: colors.overlayDark },
   sheet: {
     backgroundColor: colors.surface,
     borderTopLeftRadius: 20,
@@ -1042,7 +1047,7 @@ const styles = StyleSheet.create({
   // Media fullscreen
   mediaViewer: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.95)',
+    backgroundColor: colors.overlayOpaque,
     justifyContent: 'center',
     alignItems: 'center',
   },

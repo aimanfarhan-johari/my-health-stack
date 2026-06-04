@@ -7,9 +7,9 @@ import { sumMacros } from '../utils/macroUtils';
 const MEAL_ICONS = { Breakfast: '🌅', Lunch: '☀️', Dinner: '🌙', Snacks: '🍎' };
 
 const MACRO_COLORS = {
-  protein: '#2196F3',
-  carbs: '#FF9800',
-  fat: '#F44336',
+  protein: colors.protein,
+  carbs: colors.carbs,
+  fat: colors.fat,
 };
 
 export default function MealSection({ meal, entries = [], onAdd, onDeleteEntry }) {
@@ -120,14 +120,14 @@ const styles = StyleSheet.create({
   chipText: { fontSize: typography.fontSizeXS, fontWeight: typography.fontWeightMedium },
   deleteAction: {
     width: 80,
-    backgroundColor: '#F44336',
+    backgroundColor: colors.error,
     justifyContent: 'center',
     alignItems: 'center',
     borderBottomWidth: 1,
     borderBottomColor: colors.border,
   },
   deleteActionInner: { flex: 1, width: '100%', justifyContent: 'center', alignItems: 'center' },
-  deleteActionText: { color: '#FFFFFF', fontSize: typography.fontSizeSM, fontWeight: typography.fontWeightBold },
+  deleteActionText: { color: colors.textPrimary, fontSize: typography.fontSizeSM, fontWeight: typography.fontWeightBold },
   addBtn: { paddingHorizontal: spacing.lg, paddingVertical: spacing.md },
   addBtnText: { color: colors.accent, fontSize: typography.fontSizeSM, fontWeight: typography.fontWeightSemiBold },
 });

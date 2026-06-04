@@ -364,7 +364,7 @@ export default function WorkoutScreen() {
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.accent} />}
       >
         {sessions.length === 0 && (
-          <Text style={styles.empty}>No workouts logged for this day.</Text>
+          <Text style={styles.empty}>No session scheduled. Tap + to create one.</Text>
         )}
 
         {sessions.map(session => {
@@ -790,7 +790,7 @@ const styles = StyleSheet.create({
     backgroundColor: 'transparent',
   },
   dotGreen: { backgroundColor: colors.accent },
-  dotOrange: { backgroundColor: '#FF9800' },
+  dotOrange: { backgroundColor: colors.sessionCardio },
 
   // Content
   scrollContent: { padding: spacing.lg, paddingBottom: 40 },

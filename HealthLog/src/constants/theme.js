@@ -5,7 +5,20 @@ export const colors = {
   textPrimary: '#FFFFFF',
   textSecondary: '#888888',
   success: '#4CAF50',
+  error: '#F44336',
   border: '#2A2A2A',
+  protein: '#2196F3',
+  carbs: '#FF9800',
+  fat: '#F44336',
+  water: '#03A9F4',
+  overlay: 'rgba(0,0,0,0.6)',
+  shadow: '#000000',
+  sessionStrength: '#2196F3',
+  sessionCardio: '#FF9800',
+  sessionMixed: '#9C27B0',
+  sessionFlexibility: '#00BCD4',
+  sessionSports: '#F44336',
+  sessionOther: '#607D8B',
 };
 
 export const typography = {

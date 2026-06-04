@@ -1,47 +1,50 @@
-import React, { useState } from 'react';
+import React, { useRef } from 'react';
 import {
   View, Text, Modal, StyleSheet, TouchableOpacity,
-  ScrollView, TextInput, Alert, Dimensions,
+  ScrollView, Alert, Dimensions, Animated,
 } from 'react-native';
+import { Swipeable } from 'react-native-gesture-handler';
 import Svg, { Polyline, Circle, Line, Text as SvgText } from 'react-native-svg';
 import { colors, typography, spacing } from '../constants/theme';
 import { formatChartLabel } from '../utils/dateUtils';
 
 const SCREEN_W = Dimensions.get('window').width;
 const CHART_W = SCREEN_W - spacing.lg * 2;
-const CHART_H = 180;
-const PAD_LEFT = 44;
+const CHART_H = 200;
+const PAD_LEFT = 48;
 const PAD_BOTTOM = 36;
-const PAD_TOP = 10;
-const PAD_RIGHT = 10;
+const PAD_TOP = 12;
+const PAD_RIGHT = 12;
 
-function DetailChart({ data, color }) {
-  if (!data || data.length < 2) return null;
+function DetailChart({ data, color, target }) {
+  if (!data || data.length < 1) return null;
 
   const plotW = CHART_W - PAD_LEFT - PAD_RIGHT;
   const plotH = CHART_H - PAD_TOP - PAD_BOTTOM;
 
   const values = data.map(d => d.y);
-  const min = Math.min(...values);
-  const max = Math.max(...values);
-  const range = max - min || 1;
+  const allValues = target != null ? [...values, target] : values;
+  const rawMin = Math.min(...allValues);
+  const rawMax = Math.max(...allValues);
+  const padding = (rawMax - rawMin) * 0.1 || 1;
+  const min = rawMin - padding;
+  const max = rawMax + padding;
+  const range = max - min;
 
-  const toX = (i) => PAD_LEFT + (i / (data.length - 1)) * plotW;
+  const toX = (i) => PAD_LEFT + (data.length === 1 ? plotW / 2 : (i / (data.length - 1)) * plotW);
   const toY = (v) => PAD_TOP + plotH - ((v - min) / range) * plotH;
 
-  const points = data.map((d, i) => `${toX(i)},${toY(d.y)}`).join(' ');
-
-  // Tick labels: show up to 5 evenly spaced
-  const tickIndices = [];
   const tickCount = Math.min(5, data.length);
-  for (let i = 0; i < tickCount; i++) {
-    tickIndices.push(Math.round((i / (tickCount - 1)) * (data.length - 1)));
-  }
+  const tickIndices = Array.from({ length: tickCount }, (_, i) =>
+    Math.round((i / Math.max(tickCount - 1, 1)) * (data.length - 1))
+  );
 
   const yTicks = 4;
   const yTickValues = Array.from({ length: yTicks }, (_, i) =>
-    min + (i / (yTicks - 1)) * range
+    rawMin + (i / (yTicks - 1)) * (rawMax - rawMin)
   );
+
+  const linePoints = data.map((d, i) => `${toX(i)},${toY(d.y)}`).join(' ');
 
   return (
     <Svg width={CHART_W} height={CHART_H}>
@@ -50,20 +53,47 @@ function DetailChart({ data, color }) {
         const y = toY(v);
         return (
           <React.Fragment key={i}>
-            <Line x1={PAD_LEFT} y1={y} x2={CHART_W - PAD_RIGHT} y2={y} stroke={colors.border} strokeWidth={1} />
-            <SvgText x={PAD_LEFT - 4} y={y + 4} fontSize={9} fill={colors.textSecondary} textAnchor="end">
+            <Line
+              x1={PAD_LEFT} y1={y}
+              x2={CHART_W - PAD_RIGHT} y2={y}
+              stroke={colors.border} strokeWidth={1}
+            />
+            <SvgText
+              x={PAD_LEFT - 4} y={y + 4}
+              fontSize={9} fill={colors.textSecondary} textAnchor="end"
+            >
               {v.toFixed(1)}
             </SvgText>
           </React.Fragment>
         );
       })}
 
-      {/* Line */}
-      <Polyline points={points} fill="none" stroke={color} strokeWidth={2} strokeLinejoin="round" strokeLinecap="round" />
+      {/* Goal line */}
+      {target != null && (
+        <Line
+          x1={PAD_LEFT} y1={toY(target)}
+          x2={CHART_W - PAD_RIGHT} y2={toY(target)}
+          stroke="#4CAF50"
+          strokeWidth={1.5}
+          strokeDasharray="5 3"
+        />
+      )}
 
-      {/* Dots */}
+      {/* Data line */}
+      {data.length >= 2 && (
+        <Polyline
+          points={linePoints}
+          fill="none"
+          stroke={color}
+          strokeWidth={2}
+          strokeLinejoin="round"
+          strokeLinecap="round"
+        />
+      )}
+
+      {/* Data points */}
       {data.map((d, i) => (
-        <Circle key={i} cx={toX(i)} cy={toY(d.y)} r={3} fill={color} />
+        <Circle key={i} cx={toX(i)} cy={toY(d.y)} r={3.5} fill={color} />
       ))}
 
       {/* X tick labels */}
@@ -83,79 +113,109 @@ function DetailChart({ data, color }) {
   );
 }
 
-export default function MetricDetailModal({ visible, definition, history = [], target, onClose, onAddEntry, onDeleteEntry }) {
-  const [inputValue, setInputValue] = useState('');
-  const [showAdd, setShowAdd] = useState(false);
+function SwipeableRow({ entry, unit, onDelete }) {
+  const swipeableRef = useRef(null);
 
+  const renderRightActions = (progress, dragX) => {
+    const scale = dragX.interpolate({
+      inputRange: [-80, 0],
+      outputRange: [1, 0],
+      extrapolate: 'clamp',
+    });
+    return (
+      <TouchableOpacity
+        style={styles.deleteAction}
+        onPress={() => {
+          swipeableRef.current?.close();
+          Alert.alert(
+            'Delete entry?',
+            `${entry.value} ${unit} on ${formatChartLabel(entry.date)}`,
+            [
+              { text: 'Cancel', style: 'cancel', onPress: () => swipeableRef.current?.close() },
+              { text: 'Delete', style: 'destructive', onPress: () => onDelete(entry.id) },
+            ]
+          );
+        }}
+      >
+        <Animated.Text style={[styles.deleteActionText, { transform: [{ scale }] }]}>
+          Delete
+        </Animated.Text>
+      </TouchableOpacity>
+    );
+  };
+
+  return (
+    <Swipeable ref={swipeableRef} renderRightActions={renderRightActions} overshootRight={false}>
+      <View style={styles.historyRow}>
+        <Text style={styles.historyDate}>{formatChartLabel(entry.date)}</Text>
+        <Text style={styles.historyValue}>{entry.value}</Text>
+        <Text style={styles.historyUnit}>{unit}</Text>
+      </View>
+    </Swipeable>
+  );
+}
+
+export default function MetricDetailModal({ visible, definition, history = [], target, onClose, onDeleteEntry }) {
   if (!definition) return null;
 
   const chartData = [...history]
     .reverse()
     .map((h, i) => ({ x: i, y: h.value, date: h.date }));
 
-  const handleAdd = () => {
-    const v = parseFloat(inputValue);
-    if (isNaN(v)) { Alert.alert('Invalid', 'Please enter a valid number.'); return; }
-    onAddEntry?.(v);
-    setInputValue('');
-    setShowAdd(false);
-  };
-
   return (
     <Modal visible={visible} animationType="slide" onRequestClose={onClose}>
       <View style={styles.container}>
+        {/* Header */}
         <View style={styles.header}>
-          <TouchableOpacity onPress={onClose} style={styles.backBtn}>
-            <Text style={styles.backText}>‹ Back</Text>
-          </TouchableOpacity>
           <Text style={styles.title}>{definition.label}</Text>
-          <TouchableOpacity onPress={() => setShowAdd(s => !s)} style={styles.addBtn}>
-            <Text style={styles.addBtnText}>+ Log</Text>
+          <TouchableOpacity onPress={onClose} style={styles.closeBtn} hitSlop={{ top: 10, right: 10, bottom: 10, left: 10 }}>
+            <Text style={styles.closeText}>✕</Text>
           </TouchableOpacity>
         </View>
 
-        {showAdd && (
-          <View style={styles.addForm}>
-            <TextInput
-              style={styles.input}
-              placeholder={`Value (${definition.unit})`}
-              placeholderTextColor={colors.textSecondary}
-              value={inputValue}
-              onChangeText={setInputValue}
-              keyboardType="numeric"
-              autoFocus
-            />
-            <TouchableOpacity style={styles.saveBtn} onPress={handleAdd}>
-              <Text style={styles.saveBtnText}>Save</Text>
-            </TouchableOpacity>
-          </View>
-        )}
-
-        {chartData.length >= 2 && (
-          <View style={styles.chartContainer}>
-            <DetailChart data={chartData} color={definition.color || colors.accent} />
-          </View>
-        )}
-
-        <ScrollView style={styles.historyList}>
-          <Text style={styles.historyTitle}>History</Text>
-          {history.length === 0 ? (
-            <Text style={styles.empty}>No entries yet. Tap "+ Log" to add your first.</Text>
+        <ScrollView style={styles.body} contentContainerStyle={styles.bodyContent}>
+          {/* Chart */}
+          {chartData.length > 0 ? (
+            <View style={styles.chartContainer}>
+              <Text style={styles.yAxisLabel}>{definition.unit}</Text>
+              <DetailChart
+                data={chartData}
+                color={definition.color || colors.accent}
+                target={target}
+              />
+              {target != null && (
+                <View style={styles.goalLegend}>
+                  <View style={styles.goalLegendDash} />
+                  <Text style={styles.goalLegendText}>Goal: {target} {definition.unit}</Text>
+                </View>
+              )}
+            </View>
           ) : (
-            history.map(entry => (
-              <View key={entry.id} style={styles.historyRow}>
-                <Text style={styles.historyDate}>{entry.date}</Text>
-                <Text style={styles.historyValue}>{entry.value} {definition.unit}</Text>
-                <TouchableOpacity onPress={() => {
-                  Alert.alert('Delete entry?', `${entry.value} ${definition.unit} on ${entry.date}`, [
-                    { text: 'Cancel', style: 'cancel' },
-                    { text: 'Delete', style: 'destructive', onPress: () => onDeleteEntry?.(entry.id) },
-                  ]);
-                }}>
-                  <Text style={styles.deleteText}>×</Text>
-                </TouchableOpacity>
+            <View style={styles.emptyChart}>
+              <Text style={styles.emptyText}>No entries yet.</Text>
+            </View>
+          )}
+
+          {/* History table */}
+          <Text style={styles.sectionTitle}>History</Text>
+          {history.length === 0 ? (
+            <Text style={styles.emptyText}>No entries logged.</Text>
+          ) : (
+            <View style={styles.tableContainer}>
+              <View style={styles.tableHeader}>
+                <Text style={styles.tableHeaderCell}>Date</Text>
+                <Text style={styles.tableHeaderCell}>Value</Text>
+                <Text style={styles.tableHeaderCell}>Unit</Text>
               </View>
-            ))
+              {history.map(entry => (
+                <SwipeableRow
+                  key={entry.id}
+                  entry={entry}
+                  unit={definition.unit}
+                  onDelete={onDeleteEntry}
+                />
+              ))}
+            </View>
           )}
         </ScrollView>
       </View>
@@ -166,45 +226,134 @@ export default function MetricDetailModal({ visible, definition, history = [], t
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.background },
   header: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    paddingHorizontal: spacing.lg, paddingTop: 56, paddingBottom: spacing.md,
-    borderBottomWidth: 1, borderBottomColor: colors.border,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: spacing.lg,
+    paddingTop: 56,
+    paddingBottom: spacing.md,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border,
   },
-  backBtn: { minWidth: 60 },
-  backText: { color: colors.accent, fontSize: typography.fontSizeMD },
-  title: { color: colors.textPrimary, fontSize: typography.fontSizeLG, fontWeight: typography.fontWeightSemiBold },
-  addBtn: { minWidth: 60, alignItems: 'flex-end' },
-  addBtnText: { color: colors.accent, fontSize: typography.fontSizeMD, fontWeight: typography.fontWeightSemiBold },
-  addForm: {
-    flexDirection: 'row', gap: spacing.sm,
-    paddingHorizontal: spacing.lg, paddingVertical: spacing.md,
+  title: {
+    color: colors.textPrimary,
+    fontSize: typography.fontSizeLG,
+    fontWeight: typography.fontWeightSemiBold,
+  },
+  closeBtn: {
+    width: 32,
+    height: 32,
+    alignItems: 'center',
+    justifyContent: 'center',
     backgroundColor: colors.surface,
-    borderBottomWidth: 1, borderBottomColor: colors.border,
+    borderRadius: 16,
   },
-  input: {
-    flex: 1, backgroundColor: colors.background, borderRadius: 8,
-    paddingHorizontal: spacing.md, paddingVertical: spacing.sm,
-    color: colors.textPrimary, fontSize: typography.fontSizeMD,
+  closeText: {
+    color: colors.textSecondary,
+    fontSize: typography.fontSizeMD,
   },
-  saveBtn: {
-    backgroundColor: colors.accent, borderRadius: 8,
-    paddingHorizontal: spacing.lg, justifyContent: 'center',
+  body: { flex: 1 },
+  bodyContent: { paddingBottom: spacing.xxl },
+  chartContainer: {
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.lg,
+    backgroundColor: colors.surface,
+    marginVertical: spacing.md,
   },
-  saveBtnText: { color: colors.background, fontWeight: typography.fontWeightBold },
-  chartContainer: { paddingHorizontal: spacing.lg, paddingVertical: spacing.md, backgroundColor: colors.surface, marginVertical: spacing.md },
-  historyList: { flex: 1, paddingHorizontal: spacing.lg },
-  historyTitle: {
-    color: colors.accent, fontSize: typography.fontSizeXS,
-    fontWeight: typography.fontWeightSemiBold, textTransform: 'uppercase',
-    letterSpacing: 0.8, marginBottom: spacing.sm,
+  yAxisLabel: {
+    color: colors.textSecondary,
+    fontSize: typography.fontSizeXS,
+    marginBottom: 4,
+  },
+  goalLegend: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: spacing.sm,
+  },
+  goalLegendDash: {
+    width: 20,
+    height: 2,
+    backgroundColor: '#4CAF50',
+    marginRight: spacing.sm,
+  },
+  goalLegendText: {
+    color: colors.textSecondary,
+    fontSize: typography.fontSizeXS,
+  },
+  emptyChart: {
+    height: 120,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginVertical: spacing.md,
+    backgroundColor: colors.surface,
+    marginHorizontal: spacing.lg,
+    borderRadius: 12,
+  },
+  emptyText: {
+    color: colors.textSecondary,
+    fontSize: typography.fontSizeSM,
+    textAlign: 'center',
+    padding: spacing.lg,
+  },
+  sectionTitle: {
+    color: colors.accent,
+    fontSize: typography.fontSizeXS,
+    fontWeight: typography.fontWeightSemiBold,
+    textTransform: 'uppercase',
+    letterSpacing: 0.8,
+    paddingHorizontal: spacing.lg,
+    marginBottom: spacing.sm,
+  },
+  tableContainer: {
+    paddingHorizontal: spacing.lg,
+  },
+  tableHeader: {
+    flexDirection: 'row',
+    paddingVertical: spacing.xs,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border,
+    marginBottom: 2,
+  },
+  tableHeaderCell: {
+    flex: 1,
+    color: colors.textSecondary,
+    fontSize: typography.fontSizeXS,
+    textTransform: 'uppercase',
+    letterSpacing: 0.6,
   },
   historyRow: {
-    flexDirection: 'row', alignItems: 'center',
-    paddingVertical: spacing.sm,
-    borderBottomWidth: 1, borderBottomColor: colors.border,
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: spacing.sm + 2,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border,
+    backgroundColor: colors.background,
   },
-  historyDate: { color: colors.textPrimary, fontSize: typography.fontSizeSM, flex: 1 },
-  historyValue: { color: colors.accent, fontSize: typography.fontSizeSM, fontWeight: typography.fontWeightSemiBold, marginRight: spacing.lg },
-  deleteText: { color: colors.textSecondary, fontSize: 20, paddingLeft: spacing.sm },
-  empty: { color: colors.textSecondary, fontSize: typography.fontSizeSM, marginTop: spacing.lg },
+  historyDate: {
+    flex: 1,
+    color: colors.textPrimary,
+    fontSize: typography.fontSizeSM,
+  },
+  historyValue: {
+    flex: 1,
+    color: colors.accent,
+    fontSize: typography.fontSizeSM,
+    fontWeight: typography.fontWeightSemiBold,
+  },
+  historyUnit: {
+    flex: 1,
+    color: colors.textSecondary,
+    fontSize: typography.fontSizeSM,
+  },
+  deleteAction: {
+    backgroundColor: '#F44336',
+    justifyContent: 'center',
+    alignItems: 'center',
+    width: 80,
+  },
+  deleteActionText: {
+    color: '#FFFFFF',
+    fontSize: typography.fontSizeSM,
+    fontWeight: typography.fontWeightSemiBold,
+  },
 });

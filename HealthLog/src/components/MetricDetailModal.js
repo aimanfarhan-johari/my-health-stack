@@ -73,7 +73,7 @@ function DetailChart({ data, color, target }) {
         <Line
           x1={PAD_LEFT} y1={toY(target)}
           x2={CHART_W - PAD_RIGHT} y2={toY(target)}
-          stroke="#4CAF50"
+          stroke={colors.accent}
           strokeWidth={1.5}
           strokeDasharray="5 3"
         />
@@ -273,7 +273,7 @@ const styles = StyleSheet.create({
   goalLegendDash: {
     width: 20,
     height: 2,
-    backgroundColor: '#4CAF50',
+    backgroundColor: colors.accent,
     marginRight: spacing.sm,
   },
   goalLegendText: {
@@ -346,13 +346,13 @@ const styles = StyleSheet.create({
     fontSize: typography.fontSizeSM,
   },
   deleteAction: {
-    backgroundColor: '#F44336',
+    backgroundColor: colors.error,
     justifyContent: 'center',
     alignItems: 'center',
     width: 80,
   },
   deleteActionText: {
-    color: '#FFFFFF',
+    color: colors.textPrimary,
     fontSize: typography.fontSizeSM,
     fontWeight: typography.fontWeightSemiBold,
   },

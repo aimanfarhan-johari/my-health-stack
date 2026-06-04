@@ -161,12 +161,12 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   dotGrey: {
-    backgroundColor: '#1A1A1A',
+    backgroundColor: colors.surface,
     borderWidth: 1,
-    borderColor: '#2A2A2A',
+    borderColor: colors.border,
   },
   dotGreen: {
-    backgroundColor: '#4CAF50',
+    backgroundColor: colors.accent,
     borderWidth: 0,
   },
   dotTodayBorder: {
@@ -178,7 +178,7 @@ const styles = StyleSheet.create({
     fontSize: typography.fontSizeSM,
   },
   dayNumGreen: {
-    color: '#0D0D0D',
+    color: colors.background,
     fontWeight: typography.fontWeightBold,
   },
   dayNumToday: {

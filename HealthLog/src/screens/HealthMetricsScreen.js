@@ -2,7 +2,7 @@ import React, { useState, useCallback } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, RefreshControl,
   TouchableOpacity, Modal, TextInput, Alert,
-  TouchableWithoutFeedback, KeyboardAvoidingView, Platform,
+  TouchableWithoutFeedback, KeyboardAvoidingView, Platform, ActivityIndicator,
 } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import * as Crypto from 'expo-crypto';
@@ -22,6 +22,7 @@ export default function HealthMetricsScreen() {
   const [histories, setHistories] = useState({});
   const [selectedMetricKey, setSelectedMetricKey] = useState(null);
   const [refreshing, setRefreshing] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
 
   // Add-reading sheet state
   const [showSheet, setShowSheet] = useState(false);
@@ -37,6 +38,7 @@ export default function HealthMetricsScreen() {
       })
     );
     setHistories(Object.fromEntries(entries));
+    setIsLoading(false);
   };
 
   useFocusEffect(useCallback(() => { loadAllMetrics(); }, []));
@@ -96,15 +98,26 @@ export default function HealthMetricsScreen() {
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.accent} />
         }
       >
-        {TRACKED_METRICS.map(def => (
-          <MetricCard
-            key={def.key}
-            definition={def}
-            history={histories[def.key] || []}
-            target={getTarget(def)}
-            onPress={() => setSelectedMetricKey(def.key)}
-          />
-        ))}
+        {isLoading ? (
+          <ActivityIndicator color={colors.accent} style={{ marginTop: spacing.xxl }} />
+        ) : (
+          TRACKED_METRICS.map(def => {
+            const hist = histories[def.key] || [];
+            return (
+              <View key={def.key}>
+                <MetricCard
+                  definition={def}
+                  history={hist}
+                  target={getTarget(def)}
+                  onPress={() => setSelectedMetricKey(def.key)}
+                />
+                {hist.length === 0 && (
+                  <Text style={styles.emptyHint}>No readings yet. Tap + to log your first entry.</Text>
+                )}
+              </View>
+            );
+          })
+        )}
       </ScrollView>
 
       {/* FAB */}
@@ -204,6 +217,13 @@ const styles = StyleSheet.create({
     borderBottomColor: colors.border,
   },
   scrollContent: { padding: spacing.lg, paddingBottom: 100 },
+  emptyHint: {
+    color: colors.textSecondary,
+    fontSize: typography.fontSizeXS,
+    textAlign: 'center',
+    marginTop: -spacing.sm,
+    marginBottom: spacing.sm,
+  },
 
   // FAB
   fab: {
@@ -216,7 +236,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.accent,
     alignItems: 'center',
     justifyContent: 'center',
-    shadowColor: '#000',
+    shadowColor: colors.shadow,
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3,
     shadowRadius: 6,

@@ -9,10 +9,10 @@ const R = (SIZE - STROKE) / 2;
 const CX = SIZE / 2;
 const CY = SIZE / 2;
 
-const PROTEIN_COLOR = '#2196F3';
-const CARBS_COLOR = '#FF9800';
-const FAT_COLOR = '#F44336';
-const REMAINING_COLOR = '#2A2A2A';
+const PROTEIN_COLOR = colors.protein;
+const CARBS_COLOR = colors.carbs;
+const FAT_COLOR = colors.fat;
+const REMAINING_COLOR = colors.border;
 
 function toRad(deg) {
   return ((deg - 90) * Math.PI) / 180;

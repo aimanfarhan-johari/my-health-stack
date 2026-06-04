@@ -134,6 +134,10 @@ export default function FoodLogScreen() {
           fatGoal={settings.fatGoal}
         />
 
+        {entries.length === 0 && (
+          <Text style={styles.emptyHint}>No meals logged yet. Tap + to add food.</Text>
+        )}
+
         {MEALS.map(meal => (
           <MealSection
             key={meal}
@@ -181,6 +185,12 @@ const styles = StyleSheet.create({
   navDisabled: { opacity: 0.3 },
   dateLabel: { color: colors.textPrimary, fontSize: typography.fontSizeLG, fontWeight: typography.fontWeightSemiBold },
   scrollContent: { padding: spacing.lg, paddingBottom: spacing.xxl },
+  emptyHint: {
+    color: colors.textSecondary,
+    fontSize: typography.fontSizeSM,
+    textAlign: 'center',
+    marginVertical: spacing.md,
+  },
   waterCard: {
     backgroundColor: colors.surface,
     borderRadius: 12,
@@ -194,15 +204,15 @@ const styles = StyleSheet.create({
     height: 8, backgroundColor: colors.border, borderRadius: 4,
     overflow: 'hidden', marginBottom: spacing.md,
   },
-  waterFill: { height: '100%', backgroundColor: '#03A9F4', borderRadius: 4 },
+  waterFill: { height: '100%', backgroundColor: colors.water, borderRadius: 4 },
   waterBtn: {
     alignSelf: 'flex-start',
     backgroundColor: 'rgba(3,169,244,0.15)',
     borderWidth: 1,
-    borderColor: '#03A9F4',
+    borderColor: colors.water,
     borderRadius: 20,
     paddingHorizontal: spacing.lg,
     paddingVertical: spacing.xs,
   },
-  waterBtnText: { color: '#03A9F4', fontSize: typography.fontSizeSM, fontWeight: typography.fontWeightSemiBold },
+  waterBtnText: { color: colors.water, fontSize: typography.fontSizeSM, fontWeight: typography.fontWeightSemiBold },
 });

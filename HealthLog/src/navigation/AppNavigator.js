@@ -68,8 +68,8 @@ export default function AppNavigator() {
 
 const styles = StyleSheet.create({
   tabBar: {
-    backgroundColor: '#0D0D0D',
-    borderTopColor: '#2A2A2A',
+    backgroundColor: colors.background,
+    borderTopColor: colors.border,
     borderTopWidth: 1,
     height: 80,
     paddingBottom: 16,

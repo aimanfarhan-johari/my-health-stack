@@ -3,12 +3,12 @@ import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { colors, typography, spacing } from '../constants/theme';
 
 const TYPE_COLORS = {
-  Strength: '#2196F3',
-  Cardio: '#FF9800',
-  Mixed: '#9C27B0',
-  Flexibility: '#00BCD4',
-  Sports: '#F44336',
-  Other: '#607D8B',
+  Strength: colors.sessionStrength,
+  Cardio: colors.sessionCardio,
+  Mixed: colors.sessionMixed,
+  Flexibility: colors.sessionFlexibility,
+  Sports: colors.sessionSports,
+  Other: colors.sessionOther,
 };
 
 export default function WorkoutSessionCard({

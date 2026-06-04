@@ -11,7 +11,7 @@ import { getDB } from '../db/database';
 
 const TABS = ['Search', 'Barcode', 'Manual', 'Recent'];
 
-const MACRO_COLORS = { protein: '#2196F3', carbs: '#FF9800', fat: '#F44336' };
+const MACRO_COLORS = { protein: colors.protein, carbs: colors.carbs, fat: colors.fat };
 
 async function getRecentFoods() {
   const db = getDB();
@@ -346,9 +346,9 @@ function ServingPicker({ item, servingG, setServingG, scaledMacros, onLog, onBac
 
       <View style={styles.macroPreview}>
         <MacroPreviewRow label="Calories" value={`${macros.calories} kcal`} color={colors.textPrimary} />
-        <MacroPreviewRow label="Protein" value={`${macros.protein}g`} color="#2196F3" />
-        <MacroPreviewRow label="Carbs" value={`${macros.carbs}g`} color="#FF9800" />
-        <MacroPreviewRow label="Fat" value={`${macros.fat}g`} color="#F44336" />
+        <MacroPreviewRow label="Protein" value={`${macros.protein}g`} color={colors.protein} />
+        <MacroPreviewRow label="Carbs" value={`${macros.carbs}g`} color={colors.carbs} />
+        <MacroPreviewRow label="Fat" value={`${macros.fat}g`} color={colors.fat} />
       </View>
 
       <TouchableOpacity style={styles.logBtn} onPress={onLog}>
@@ -407,7 +407,7 @@ const styles = StyleSheet.create({
     position: 'absolute', bottom: 40, left: 0, right: 0, alignItems: 'center',
   },
   barcodeHintText: {
-    backgroundColor: 'rgba(0,0,0,0.6)', color: '#FFF', paddingHorizontal: spacing.lg,
+    backgroundColor: colors.overlay, color: colors.textPrimary, paddingHorizontal: spacing.lg,
     paddingVertical: spacing.sm, borderRadius: 12, fontSize: typography.fontSizeSM,
   },
   manualForm: { padding: spacing.lg },

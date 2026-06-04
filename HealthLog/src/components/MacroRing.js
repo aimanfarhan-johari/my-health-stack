@@ -51,7 +51,6 @@ export default function MacroRing({
   const proKcal = pro * 4;
   const carbKcal = carb * 4;
   const fatKcal = fa * 9;
-  const totalKcal = Math.min(cal, goal);
   const remaining = Math.max(0, goal - cal);
 
   // Fraction of ring per macro (based on their contribution to total goal)

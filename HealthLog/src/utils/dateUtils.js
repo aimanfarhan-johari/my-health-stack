@@ -1,12 +1,19 @@
+function localISO(date) {
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, '0');
+  const d = String(date.getDate()).padStart(2, '0');
+  return `${y}-${m}-${d}`;
+}
+
 export function todayISO() {
-  return new Date().toISOString().split('T')[0];
+  return localISO(new Date());
 }
 
 export function getDaysInMonth(year, month) {
   const days = [];
   const date = new Date(year, month - 1, 1);
   while (date.getMonth() === month - 1) {
-    days.push(date.toISOString().split('T')[0]);
+    days.push(localISO(date));
     date.setDate(date.getDate() + 1);
   }
   return days;

@@ -87,15 +87,21 @@ export default function FoodLogScreen() {
   const isToday = selectedDate === today;
 
   const goToPrevDay = () => {
-    const d = new Date(selectedDate + 'T00:00:00');
-    d.setDate(d.getDate() - 1);
-    setSelectedDate(d.toISOString().split('T')[0]);
+    const [y, mo, dy] = selectedDate.split('-').map(Number);
+    const d = new Date(y, mo - 1, dy - 1);
+    const py = d.getFullYear();
+    const pm = String(d.getMonth() + 1).padStart(2, '0');
+    const pd = String(d.getDate()).padStart(2, '0');
+    setSelectedDate(`${py}-${pm}-${pd}`);
   };
 
   const goToNextDay = () => {
-    const d = new Date(selectedDate + 'T00:00:00');
-    d.setDate(d.getDate() + 1);
-    const next = d.toISOString().split('T')[0];
+    const [y, mo, dy] = selectedDate.split('-').map(Number);
+    const d = new Date(y, mo - 1, dy + 1);
+    const ny = d.getFullYear();
+    const nm = String(d.getMonth() + 1).padStart(2, '0');
+    const nd = String(d.getDate()).padStart(2, '0');
+    const next = `${ny}-${nm}-${nd}`;
     if (next <= today) setSelectedDate(next);
   };
 

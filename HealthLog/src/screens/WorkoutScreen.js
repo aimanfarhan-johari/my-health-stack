@@ -2,6 +2,7 @@ import React, { useState, useCallback } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity, Modal,
   TextInput, Alert, RefreshControl, Image, ActivityIndicator,
+  KeyboardAvoidingView, Platform,
 } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import * as Crypto from 'expo-crypto';
@@ -36,6 +37,13 @@ const DAY_LETTERS = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
 
 const EMPTY_EX = { name: '', type: 'strength', cardio_type: 'Run', duration: '', distance: '' };
 
+function localISO(date) {
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, '0');
+  const d = String(date.getDate()).padStart(2, '0');
+  return `${y}-${m}-${d}`;
+}
+
 function getWeekDays(weekOffset) {
   const today = new Date();
   const dow = today.getDay(); // 0=Sun
@@ -45,7 +53,7 @@ function getWeekDays(weekOffset) {
   return Array.from({ length: 7 }, (_, i) => {
     const d = new Date(monday);
     d.setDate(monday.getDate() + i);
-    return d.toISOString().split('T')[0];
+    return localISO(d);
   });
 }
 
@@ -543,7 +551,10 @@ export default function WorkoutScreen() {
 
       {/* ── Session creation modal (3 steps) ── */}
       <Modal visible={sessionModal} transparent animationType="slide" onRequestClose={() => setSessionModal(false)}>
-        <View style={styles.overlay}>
+        <KeyboardAvoidingView
+          style={styles.overlay}
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        >
           <View style={styles.sheet}>
             {/* Step indicator */}
             <View style={styles.stepsRow}>
@@ -717,7 +728,7 @@ export default function WorkoutScreen() {
               <Text style={[styles.ghostBtnText, { textAlign: 'center' }]}>Cancel</Text>
             </TouchableOpacity>
           </View>
-        </View>
+        </KeyboardAvoidingView>
       </Modal>
 
       {/* ── Fullscreen media viewer ── */}

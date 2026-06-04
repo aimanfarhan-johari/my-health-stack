@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useCallback } from 'react';
-import { View, Text, StyleSheet, ScrollView, RefreshControl } from 'react-native';
-import { useFocusEffect } from '@react-navigation/native';
+import { View, Text, StyleSheet, ScrollView, RefreshControl, TouchableOpacity } from 'react-native';
+import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import { colors, typography, spacing } from '../constants/theme';
 import DotCalendar from '../components/DotCalendar';
 import DayDetailModal from '../components/DayDetailModal';
@@ -9,6 +9,7 @@ import { getSessionsByDate, getWorkoutSummaryForMonth } from '../db/queries/work
 import useStore from '../store/useStore';
 
 export default function DashboardScreen() {
+  const navigation = useNavigation();
   const { currentMonth, settings } = useStore();
   const { year, month } = currentMonth;
   const calorieGoal = settings.dailyCalorieGoal || 2000;
@@ -72,13 +73,18 @@ export default function DashboardScreen() {
 
   return (
     <View style={styles.container}>
+      <View style={styles.headerRow}>
+        <Text style={styles.heading}>Activity</Text>
+        <TouchableOpacity onPress={() => navigation.navigate('Settings')} style={styles.gearBtn} hitSlop={{ top: 8, right: 8, bottom: 8, left: 8 }}>
+          <Text style={styles.gearIcon}>⚙️</Text>
+        </TouchableOpacity>
+      </View>
       <ScrollView
         contentContainerStyle={styles.scrollContent}
         refreshControl={
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.accent} />
         }
       >
-        <Text style={styles.heading}>Activity</Text>
         <Text style={styles.subheading}>Tap a day to see what was logged</Text>
         <DotCalendar greenDates={greenDates} onDayPress={handleDayPress} />
       </ScrollView>
@@ -97,14 +103,22 @@ export default function DashboardScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.background },
-  scrollContent: { paddingTop: 60, paddingBottom: spacing.xxl },
+  headerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: spacing.lg,
+    paddingTop: 60,
+    paddingBottom: spacing.sm,
+  },
   heading: {
     color: colors.textPrimary,
     fontSize: typography.fontSizeXXL,
     fontWeight: typography.fontWeightBold,
-    paddingHorizontal: spacing.lg,
-    marginBottom: 4,
   },
+  gearBtn: { padding: 4 },
+  gearIcon: { fontSize: 22 },
+  scrollContent: { paddingBottom: spacing.xxl },
   subheading: {
     color: colors.textSecondary,
     fontSize: typography.fontSizeSM,

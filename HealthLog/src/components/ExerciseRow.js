@@ -41,16 +41,19 @@ export default function ExerciseRow({ exercise, sessionDate, onUpdateSets, onUpd
 
   const cardioDone = isCardio && sets.length > 0 && sets[0].done;
 
-  const persistCardio = () => {
+  const persistCardio = (overrides = {}) => {
     onUpdate?.({
       ...exercise,
       duration: localDuration ? parseInt(localDuration) : null,
       distance: localDistance ? parseFloat(localDistance) : null,
+      ...overrides,
     });
   };
 
   const setCardioType = (ct) => {
-    onUpdate?.({ ...exercise, cardio_type: ct });
+    // Include current local state so an uncommitted duration/distance isn't
+    // overwritten with the stale DB value when the type chip is tapped.
+    persistCardio({ cardio_type: ct });
   };
 
   const completedCount = isCardio ? (cardioDone ? 1 : 0) : sets.filter(s => s.done).length;
@@ -99,8 +102,14 @@ export default function ExerciseRow({ exercise, sessionDate, onUpdateSets, onUpd
               <TextInput
                 style={styles.cardioInput}
                 value={localDuration}
-                onChangeText={setLocalDuration}
-                onBlur={persistCardio}
+                onChangeText={v => {
+                  setLocalDuration(v);
+                  onUpdate?.({
+                    ...exercise,
+                    duration: v ? parseInt(v) : null,
+                    distance: localDistance ? parseFloat(localDistance) : null,
+                  });
+                }}
                 placeholder="—"
                 placeholderTextColor={colors.textSecondary}
                 keyboardType="numeric"
@@ -111,8 +120,14 @@ export default function ExerciseRow({ exercise, sessionDate, onUpdateSets, onUpd
               <TextInput
                 style={styles.cardioInput}
                 value={localDistance}
-                onChangeText={setLocalDistance}
-                onBlur={persistCardio}
+                onChangeText={v => {
+                  setLocalDistance(v);
+                  onUpdate?.({
+                    ...exercise,
+                    duration: localDuration ? parseInt(localDuration) : null,
+                    distance: v ? parseFloat(v) : null,
+                  });
+                }}
                 placeholder="—"
                 placeholderTextColor={colors.textSecondary}
                 keyboardType="numeric"
